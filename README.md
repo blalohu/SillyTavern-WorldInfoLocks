@@ -1,1 +1,174 @@
-This was bugging me, because this extension was everything I wanted... except it didn't have the exact two functionalities I needed for my Lorebook workflow, and that is remembering if a lorebook's entries were toggled on or off, and what their trigger percentage was. So I made a quick fix.
+# 🌎 World Info Locks (A SillyTavern Extension)
+
+World Info Locks is a comprehensive preset management system for SillyTavern's World Info functionality. Originally forked from [World Info Presets](https://github.com/LenAnderson/SillyTavern-WorldInfoPresets/), it has evolved into a powerful tool for managing lorebook configurations across different contexts.
+
+![The ST World Info Locks Interface](https://github.com/aikohanasaki/imagehost/blob/main/STWIL.png)
+
+## � Translations
+- 简体中文 (zh-CN): [readmes/README.zh-cn.md](readmes/README.zh-cn.md)
+- 繁體中文 (zh-TW): [readmes/README.zh-tw.md](readmes/README.zh-tw.md)
+
+## �🌟 Key Features
+
+### 📚 **World Info Presets**
+- **Save and Load Presets**: Create named presets that include both world info books and activation settings
+- **Smart Book Management**: Automatically handles loading/unloading of multiple world info books
+- **Activation Settings**: Optionally capture and restore world info activation settings (depth, budget, recursion, matching rules, etc.)
+- **Granular Settings Control**: Choose exactly which activation settings to include per preset
+- **CharLore Protection**: Intelligently preserves character-specific lore data when switching presets
+
+### 🔒 **Advanced Locking System**
+- **Character Locks**: Lock specific presets to individual characters
+- **Chat Locks**: Lock presets to specific conversations
+- **Lock Priority**: Configure whether chat locks or character locks take precedence
+- **Group Chat Support**: Handles group conversations appropriately (character locks disabled, chat locks available)
+
+### 🌍 **Global Defaults**
+- **Global Default Preset**: Set a fallback preset for unlocked characters/chats
+- **Automatic Application**: Seamlessly applies appropriate presets based on context
+- **Smart Notifications**: Optional toast notifications for preset changes
+
+### 📤 **Import/Export System**
+- **Complete Preset Export**: Export presets with all associated world info books
+- **Character Lock Export**: Include character-specific lock configurations
+- **Global Default Export**: Mark and restore global default settings
+- **Flexible Import Options**: Choose to include books, overwrite existing presets, etc.
+
+### 🔧 **Intelligent Management**
+- **Book Rename Detection**: Automatically updates presets when world info books are renamed
+- **Conflict Resolution**: Smart handling of preset name conflicts during import
+- **Live Updates**: Real-time UI updates when switching contexts
+- **Caching System**: Optimized performance with intelligent context caching
+
+## 📖 Usage Guide
+
+### Creating Your First Preset
+
+1. **Set up your World Info**: Select the world info books and configure activation settings as desired
+2. **Create Preset**: Click the ➕ button and give your preset a name
+3. **Choose Settings to Include**: Select which world info activation settings to save with this preset
+![World Activation choices (can be ignored)](https://github.com/aikohanasaki/imagehost/blob/main/STWIL%20WI%20settings.png)
+   - **Activation Settings**: Controls when and how entries are activated (depth, min activations, recursion)
+   - **Budget & Performance**: Memory usage and token limits
+   - **Text Matching**: Keyword matching behavior (case sensitivity, whole words)
+   - **Strategy & Scoring**: Activation priority and scoring rules
+   - Or choose to save no settings (books only)
+4. **Activate Later**: Use the dropdown to switch between presets anytime
+
+### Setting Up Locks
+
+![Lock to character or chat](https://github.com/aikohanasaki/imagehost/blob/main/STWIL%20lock.png)
+
+1. **Select a Preset**: Choose the preset you want to lock
+2. **Open Lock Settings**: Click the 🔒 button
+3. **Choose Lock Type**:
+   - ✅ **Lock to character**: Preset automatically applies when chatting with this character
+   - ✅ **Lock to chat**: Preset automatically applies when in this specific conversation
+4. **Confirm**: Click OK to save your lock settings
+
+### Configuring Global Settings
+
+![All the settings!](https://github.com/aikohanasaki/imagehost/blob/main/STWIL%20menu.png)
+
+1. **Open Settings**: Click the ⚙️ button
+2. **Set Global Default**: Choose a preset to apply when no locks are active
+3. **Configure Lock Behavior**:
+   - Enable/disable character locks
+   - Enable/disable chat locks
+   - Choose lock priority (chat over character or vice versa)
+   - Toggle lock notifications
+
+### Import/Export Workflow
+
+![Exporting](https://github.com/aikohanasaki/imagehost/blob/main/STWIL%20export.png)
+
+**Exporting:**
+1. Select the preset to export
+2. Click the 📤 Export button
+3. Choose options:
+   - Include book contents
+   - Use current selection instead of preset definition
+4. Save the generated JSON file
+
+**Importing:**
+1. Click the 📥 Import button
+2. Select your preset JSON file(s)
+3. Resolve any naming conflicts
+4. Choose whether to import included books and character locks
+
+## 🎯 Advanced Features
+
+![World Info Activation Settings](https://github.com/aikohanasaki/imagehost/blob/main/STWIL%20WI.png)
+
+### World Info Activation Settings
+Each preset can optionally include world info activation settings that control how entries are activated:
+
+- **Activation Settings**: Scan depth, minimum activations, recursion behavior
+- **Budget & Performance**: Token budget, budget cap, overflow alerts
+- **Text Matching**: Case sensitivity, whole word matching, include character names
+- **Strategy & Scoring**: Character vs. global priority, group scoring behavior
+
+When creating or updating a preset, you can choose exactly which settings to include. Presets without settings will only manage book selection. When a preset with settings is activated, those settings are automatically applied.
+
+### Book Rename Detection
+When you rename a world info book, the extension detects this change and offers to update all presets that reference the old name to use the new name instead.
+
+### Slash Command Support
+Use the `/wipreset` command to quickly switch presets:
+```
+/wipreset MyPresetName
+/wipreset  // (blank to deactivate current preset)
+```
+
+### Context-Aware Behavior
+- **Character Changes**: Automatically applies character-locked presets when switching characters
+- **Chat Changes**: Applies chat-locked presets when switching conversations
+- **Group Chats**: Adapts behavior appropriately (character locks disabled, uses group name for chat locks)
+
+## ⚙️ Configuration Options
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Global Default Preset** | Preset to apply when no specific preset is selected and no locks are active | None |
+| **Enable Character Locks** | Allow presets to be locked to specific characters | ✅ Enabled |
+| **Enable Chat Locks** | Allow presets to be locked to specific chats | ✅ Enabled |
+| **Prefer Chat Over Character Locks** | When both exist, prioritize chat locks over character locks | ❌ Disabled |
+| **Show Lock Notifications** | Display toast notifications when locked presets are applied | ✅ Enabled |
+
+## 🔄 Migration from World Info Presets
+
+If you're upgrading from the original World Info Presets extension:
+
+1. Your existing presets will be automatically preserved
+2. All functionality from the original extension is maintained
+3. New locking and global default features are available immediately
+4. No manual migration steps required
+
+## 🐛 Troubleshooting
+
+**Preset not applying correctly?**
+- Check that all referenced world info books still exist
+- Verify lock settings in the 🔒 menu
+- Check global default settings in ⚙️ menu
+
+**Character locks not working?**
+- Ensure character locks are enabled in settings
+- Verify you're not in a group chat (character locks are disabled in group chats)
+- Check that the character name matches exactly
+
+**Missing notifications?**
+- Enable "Show lock notifications" in the settings menu
+
+## 🤝 Contributing
+
+This extension is considered feature-complete, but contributions are still welcome! Please feel free to:
+- **Report bugs** via GitHub issues (actively maintained)
+- **Submit compatibility fixes** for SillyTavern updates
+- **Improve documentation** and examples
+- **Share usage tips** and workflows
+
+> **Note**: While the extension is feature-complete, bug reports and compatibility updates are always appreciated to keep it working smoothly with SillyTavern updates.
+
+## 🙏 Acknowledgments
+
+- Original [World Info Presets](https://github.com/LenAnderson/SillyTavern-WorldInfoPresets/) extension by LenAnderson
