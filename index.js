@@ -674,13 +674,13 @@ const activatePresetByName = async(name)=>{
     await activatePreset(preset);
 };
 
-export /**
+/**
  * Activate a preset by applying its selected lorebooks, optional global settings,
  * and saved per-entry activation states.
  * @param {Preset|null|undefined} preset - Preset to activate, or null to clear it.
  * @param {boolean} [skipLockCheck=false] - Whether to bypass preset lock checks.
  */
-const activatePreset = async(preset, skipLockCheck = false)=>{
+export const activatePreset = async(preset, skipLockCheck = false)=>{
     // Check if we're changing presets in a locked context
     if (!skipLockCheck && hasAnyLocks()) {
         const currentLock = getLockForContext();
