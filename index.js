@@ -161,17 +161,19 @@ function snapshotWorldInfoSettings() {
  * SillyTavern's sorted World Info entry list. The book name + entry UID form
  * the stable lookup key used when restoring a preset.
  */
-async function snapshotLorebookEntryStates() {
+async function snapshotLorebookEntryStates(worldList = []) {
+    const allowedBooks = new Set(worldList);
     const snapshot = {};
     const entries = await getSortedEntries();
     for (const entry of entries) {
         if (!entry || entry.world == null || entry.uid == null) continue;
         const bookName = String(entry.world);
+        if (!allowedBooks.has(bookName)) continue;
         const uid = String(entry.uid);
         if (!snapshot[bookName]) snapshot[bookName] = {};
         snapshot[bookName][uid] = {
             enabled: !entry.disable,
-            probability: Number.isFinite(Number(entry.probability)) ? Number(entry.probability) : 100,
+            probability: entry.probability === null ? null : (Number.isFinite(Number(entry.probability)) ? Number(entry.probability) : 100),
         };
     }
     return snapshot;
@@ -181,9 +183,11 @@ async function snapshotLorebookEntryStates() {
  * Restore entry enabled state and Trigger % from a preset, persisting changed
  * lorebooks through SillyTavern's own World Info save function.
  */
-async function applyLorebookEntryStates(entryStates) {
+async function applyLorebookEntryStates(entryStates, worldList = []) {
     if (!entryStates || typeof entryStates !== 'object') return;
+    const allowedBooks = new Set(worldList);
     for (const [bookName, states] of Object.entries(entryStates)) {
+        if (!allowedBooks.has(bookName)) continue;
         if (!states || typeof states !== 'object') continue;
         const book = await loadWorldInfo(bookName);
         if (!book || !book.entries) {
@@ -201,7 +205,7 @@ async function applyLorebookEntryStates(entryStates) {
                     changed = true;
                 }
             }
-            if (typeof state.probability === 'number' && Number.isFinite(state.probability)) {
+            if (state.probability === null || (typeof state.probability === 'number' && Number.isFinite(state.probability))) {
                 if (entry.probability !== state.probability) {
                     entry.probability = state.probability;
                     changed = true;
@@ -670,7 +674,13 @@ const activatePresetByName = async(name)=>{
     await activatePreset(preset);
 };
 
-export const activatePreset = async(preset, skipLockCheck = false)=>{
+export /**
+ * Activate a preset by applying its selected lorebooks, optional global settings,
+ * and saved per-entry activation states.
+ * @param {Preset|null|undefined} preset - Preset to activate, or null to clear it.
+ * @param {boolean} [skipLockCheck=false] - Whether to bypass preset lock checks.
+ */
+const activatePreset = async(preset, skipLockCheck = false)=>{
     // Check if we're changing presets in a locked context
     if (!skipLockCheck && hasAnyLocks()) {
         const currentLock = getLockForContext();
@@ -748,7 +758,7 @@ export const activatePreset = async(preset, skipLockCheck = false)=>{
     // Restore per-entry state after activating the preset's lorebooks.
     if (preset?.entryStates) {
         try {
-            await applyLorebookEntryStates(preset.entryStates);
+            await applyLorebookEntryStates(preset.entryStates, preset.worldList);
         } catch (error) {
             console.error(`STWIL: Error restoring lorebook entry states for preset "${preset.name}":`, error);
             if (settings.showLockNotifications) {
@@ -1333,6 +1343,10 @@ const importSinglePreset = async(file)=>{
     }
 };
 
+/**
+ * Ask which global World Info settings and per-entry states to include in a preset.
+ * @returns {Promise<{includeSettings: boolean, includeEntryStates: boolean, selectedSettings: string[]}|null>} Selected options, or null if cancelled.
+ */
 async function showSettingsSelectionDialog() {
     const categories = getSettingsCategories();
     const allSettings = Object.values(categories).flatMap(cat => cat.settings);
@@ -1468,6 +1482,7 @@ async function showSettingsSelectionDialog() {
     };
 }
 
+/** Create a preset from the current lorebook selection and selected saved state options. */
 const createPreset = async()=>{
     const nameContent = document.createElement('div');
     nameContent.innerHTML = `<h3>${translate('Preset Name:', 'stwil.dialog.presetName.title')}</h3>`;
@@ -1500,7 +1515,7 @@ const createPreset = async()=>{
         console.log(`STWIL: Created preset "${name}" without world info settings`);
     }
 
-    preset.entryStates = settingsToInclude.includeEntryStates ? await snapshotLorebookEntryStates() : null;
+    preset.entryStates = settingsToInclude.includeEntryStates ? await snapshotLorebookEntryStates(preset.worldList) : null;
 
     settings.presetList.push(preset);
     settings.presetName = name;
@@ -1690,7 +1705,7 @@ const init = ()=>{
                         preset.worldInfoSettings = null;
                     }
 
-                    preset.entryStates = settingsToInclude.includeEntryStates ? await snapshotLorebookEntryStates() : null;
+                    preset.entryStates = settingsToInclude.includeEntryStates ? await snapshotLorebookEntryStates(preset.worldList) : null;
                     saveSettingsDebounced();
                     toastr.success(
                         tKey('stwil.toast.presetUpdated', 'Updated preset "${0}"', escapeHtml(preset.name)),
@@ -1934,6 +1949,10 @@ const init = ()=>{
                 if (dlg.result == POPUP_RESULT.AFFIRMATIVE) {
                     for (const preset of presets) {
                         preset.worldList.splice(preset.worldList.indexOf(oldName), 1, newName);
+                        if (preset.entryStates && Object.prototype.hasOwnProperty.call(preset.entryStates, oldName)) {
+                            preset.entryStates[newName] = preset.entryStates[oldName];
+                            delete preset.entryStates[oldName];
+                        }
                     }
                     saveSettingsDebounced();
                     updateSelect(); // Update the UI to reflect changes
