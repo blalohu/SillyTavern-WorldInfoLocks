@@ -5,6 +5,7 @@ import { executeSlashCommands, registerSlashCommand } from '../../../slash-comma
 import { importWorldInfo, world_info, getWorldInfoSettings, getSortedEntries, loadWorldInfo, saveWorldInfo } from '../../../world-info.js';
 import { selected_group, groups } from '../../../group-chats.js';
 import { escapeHtml } from '../../../utils.js';
+import { debounce_timeout } from '../../../constants.js';
 import { addLocaleData, getCurrentLocale, translate, applyLocale } from '../../../i18n.js';
 
 // Context cache to avoid redundant character name lookups
@@ -173,6 +174,7 @@ async function snapshotLorebookEntryStates(worldList = []) {
         if (!snapshot[bookName]) snapshot[bookName] = {};
         snapshot[bookName][uid] = {
             enabled: !entry.disable,
+            useProbability: typeof entry.useProbability === 'boolean' ? entry.useProbability : undefined,
             probability: entry.probability === null ? null : (Number.isFinite(Number(entry.probability)) ? Number(entry.probability) : 100),
         };
     }
@@ -205,6 +207,11 @@ async function applyLorebookEntryStates(entryStates, worldList = []) {
                     changed = true;
                 }
             }
+            // Older presets do not have useProbability; leave that field unchanged for compatibility.
+            if (typeof state.useProbability === 'boolean' && entry.useProbability !== state.useProbability) {
+                entry.useProbability = state.useProbability;
+                changed = true;
+            }
             if (state.probability === null || (typeof state.probability === 'number' && Number.isFinite(state.probability))) {
                 if (entry.probability !== state.probability) {
                     entry.probability = state.probability;
@@ -212,7 +219,12 @@ async function applyLorebookEntryStates(entryStates, worldList = []) {
                 }
             }
         }
-        if (changed) await saveWorldInfo(bookName, book, true);
+        if (changed) {
+            // saveWorldInfo(..., true) cancels SillyTavern's shared debounced save.
+            // Let any pending edit finish before using the immediate save path.
+            await new Promise(resolve => setTimeout(resolve, debounce_timeout.relaxed + 50));
+            await saveWorldInfo(bookName, book, true);
+        }
     }
 }
 
