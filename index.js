@@ -5,7 +5,6 @@ import { executeSlashCommands, registerSlashCommand } from '../../../slash-comma
 import { importWorldInfo, world_info, getWorldInfoSettings, getSortedEntries, loadWorldInfo, saveWorldInfo } from '../../../world-info.js';
 import { selected_group, groups } from '../../../group-chats.js';
 import { escapeHtml } from '../../../utils.js';
-import { debounce_timeout } from '../../../constants.js';
 import { addLocaleData, getCurrentLocale, translate, applyLocale } from '../../../i18n.js';
 
 // Context cache to avoid redundant character name lookups
@@ -220,10 +219,15 @@ async function applyLorebookEntryStates(entryStates, worldList = []) {
             }
         }
         if (changed) {
-            // saveWorldInfo(..., true) cancels SillyTavern's shared debounced save.
-            // Let any pending edit finish before using the immediate save path.
-            await new Promise(resolve => setTimeout(resolve, debounce_timeout.relaxed + 50));
-            await saveWorldInfo(bookName, book, true);
+            // Do not call saveWorldInfo(..., true) here: SillyTavern's immediate
+            // save cancels its shared debounced save, which may belong to another book.
+            // Persist this book directly and leave any unrelated pending save intact.
+            await fetch('/api/worldinfo/edit', {
+                method: 'POST',
+                headers: getRequestHeaders(),
+                body: JSON.stringify({ name: bookName, data: book }),
+            });
+            await eventSource.emit(event_types.WORLDINFO_UPDATED, bookName, book);
         }
     }
 }
@@ -692,7 +696,28 @@ const activatePresetByName = async(name)=>{
  * @param {Preset|null|undefined} preset - Preset to activate, or null to clear it.
  * @param {boolean} [skipLockCheck=false] - Whether to bypass preset lock checks.
  */
-export const activatePreset = async(preset, skipLockCheck = false)=>{
+let presetActivationQueue = Promise.resolve();
+
+/**
+ * Queue preset activations so they complete in request order.
+ * This prevents overlapping activations from leaving an older preset active last.
+ * @param {Preset|null|undefined} preset - Preset to activate, or null to clear it.
+ * @param {boolean} [skipLockCheck=false] - Whether to bypass preset lock checks.
+ */
+export const activatePreset = async(preset, skipLockCheck = false) => {
+    const activation = presetActivationQueue.then(() => performPresetActivation(preset, skipLockCheck));
+    presetActivationQueue = activation.catch(error => {
+        console.error('STWIL: Preset activation failed:', error);
+    });
+    return await activation;
+};
+
+/**
+ * Apply a preset after earlier queued activations have completed.
+ * @param {Preset|null|undefined} preset - Preset to activate, or null to clear it.
+ * @param {boolean} [skipLockCheck=false] - Whether to bypass preset lock checks.
+ */
+const performPresetActivation = async(preset, skipLockCheck = false)=>{
     // Check if we're changing presets in a locked context
     if (!skipLockCheck && hasAnyLocks()) {
         const currentLock = getLockForContext();
