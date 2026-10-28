@@ -2,7 +2,7 @@ import { callPopup, eventSource, event_types, getRequestHeaders, saveSettingsDeb
 import { extension_settings, saveMetadataDebounced } from '../../../extensions.js';
 import { POPUP_RESULT, POPUP_TYPE, Popup } from '../../../popup.js';
 import { executeSlashCommands, registerSlashCommand } from '../../../slash-commands.js';
-import { importWorldInfo, world_info, getWorldInfoSettings, getSortedEntries, loadWorldInfo, saveWorldInfo } from '../../../world-info.js';
+import { importWorldInfo, world_info, getWorldInfoSettings, getSortedEntries, loadWorldInfo, saveWorldInfo, reloadEditor, worldInfoCache } from '../../../world-info.js';
 import { selected_group, groups } from '../../../group-chats.js';
 import { escapeHtml } from '../../../utils.js';
 import { addLocaleData, getCurrentLocale, translate, applyLocale } from '../../../i18n.js';
@@ -187,12 +187,14 @@ async function snapshotLorebookEntryStates(worldList = []) {
 async function applyLorebookEntryStates(entryStates, worldList = []) {
     if (!entryStates || typeof entryStates !== 'object') return;
     const allowedBooks = new Set(worldList);
+    const failedBooks = [];
     for (const [bookName, states] of Object.entries(entryStates)) {
         if (!allowedBooks.has(bookName)) continue;
         if (!states || typeof states !== 'object') continue;
         const book = await loadWorldInfo(bookName);
         if (!book || !book.entries) {
             console.warn(`STWIL: Could not load lorebook "${bookName}" while restoring entry states.`);
+            failedBooks.push(bookName);
             continue;
         }
         let changed = false;
@@ -222,13 +224,21 @@ async function applyLorebookEntryStates(entryStates, worldList = []) {
             // Do not call saveWorldInfo(..., true) here: SillyTavern's immediate
             // save cancels its shared debounced save, which may belong to another book.
             // Persist this book directly and leave any unrelated pending save intact.
-            await fetch('/api/worldinfo/edit', {
+            const response = await fetch('/api/worldinfo/edit', {
                 method: 'POST',
                 headers: getRequestHeaders(),
                 body: JSON.stringify({ name: bookName, data: book }),
             });
+            if (!response.ok) {
+                throw new Error(`Failed to save restored lorebook "${bookName}": ${response.status} ${response.statusText}`);
+            }
+            worldInfoCache.set(bookName, book);
+            reloadEditor(bookName);
             await eventSource.emit(event_types.WORLDINFO_UPDATED, bookName, book);
         }
+    }
+    if (failedBooks.length > 0) {
+        throw new Error(`Could not restore lorebook entry states for: ${failedBooks.join(', ')}`);
     }
 }
 
